@@ -85,12 +85,7 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	String fpsStr = "";
 	TextRenderer textrenderer = new TextRenderer(fpsFont);
 
-	private float xrot = 0.0f;
-	private float yrot = 0.0f;
-	private float xspeed = 0.0f;
-	private float yspeed = 0.0f;
-	private float zpos = -5.0f;
-	// private Texture texture;
+
 	// Textures with three different filters - Nearest, Linear & MIPMAP
 	private Texture[] textures = new Texture[3];
 	private int currentTextureFilter;

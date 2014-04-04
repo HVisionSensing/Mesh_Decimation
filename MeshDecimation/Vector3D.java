@@ -1,3 +1,8 @@
+/**
+ * 
+ * @author Andong.Li
+ * @version 1.0
+ */
 
 public class Vector3D {
 
