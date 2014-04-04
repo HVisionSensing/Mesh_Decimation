@@ -1,3 +1,8 @@
+/**
+ * @author Andong.Li(andong.li@outlook.com)
+ * Please notify me before you take advantage of it
+ */
+
 import java.applet.Applet;
 import java.awt.BorderLayout;
 import java.awt.Font;
@@ -5,7 +10,12 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.LinkedList;
 
 import static java.awt.event.KeyEvent.VK_DOWN;
 import static java.awt.event.KeyEvent.VK_B;
@@ -22,22 +32,28 @@ import javax.media.opengl.GL2;
 import javax.media.opengl.GLAnimatorControl;
 import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLEventListener;
+import javax.media.opengl.GLProfile;
 import javax.media.opengl.awt.GLCanvas;
 import javax.media.opengl.glu.GLU;
 
+import com.jogamp.newt.Window;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.awt.TextRenderer;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.TextureCoords;
 import com.jogamp.opengl.util.texture.TextureIO;
 
-public class Main extends Applet implements GLEventListener, KeyListener, MouseListener{
+public class Main extends Applet implements GLEventListener, KeyListener, MouseListener, MouseMotionListener{
 
+	// Applet configure
 	private static final long serialVersionUID = 1L;
 
 	private final int WIDTH = 640;
 	private final int HEIGHT = 480;
 	private final int EXPECTED_FPS = 60;
+	
+	private final String modelFileName = "model/test.off";
+	private final String modelFileType = ".off";
 
 	private GLAnimatorControl animator;
 
@@ -51,6 +67,9 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		canvas.addGLEventListener(this);
 		// register key listener
 		canvas.addKeyListener(this);
+		// register mouse listener
+		canvas.addMouseListener(this);
+		canvas.addMouseMotionListener(this);
 		canvas.setFocusable(true);
 		canvas.requestFocus();
 
@@ -74,7 +93,13 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 
 	// for the GL Utility
 	private GLU glu = new GLU();
-
+	private int prevMouseX, prevMouseY;
+	private float view_rotx = 20.0f, view_roty = 30.0f;
+	
+	private float[][] VERTICES;
+	private float[][] FACES;
+	
+	
 	// for computing FPS
 	public final long FPS_UPADTE_CAP = 100;
 	private int myFrameCount;
@@ -85,13 +110,7 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	String fpsStr = "";
 	TextRenderer textrenderer = new TextRenderer(fpsFont);
 
-
-	// Textures with three different filters - Nearest, Linear & MIPMAP
-	private Texture[] textures = new Texture[3];
-	private int currentTextureFilter;
-	private final String imageDir = "img/glass.png";
-	private final String imageType = ".png";
-	private float textureTop, textureBottom, textureLeft, textureRight;
+	boolean drawEdges = false;
 
 	//enable light
 	private boolean isLightOn = false;
@@ -104,101 +123,13 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 		gl.glLoadIdentity();
 
-		gl.glTranslatef(0.0f, 0.0f, zpos);
-		gl.glRotatef(xrot, 1.0f, 0.0f, 0.0f);
-		gl.glRotatef(yrot, 0.0f, 1.0f, 0.0f);
+		// Rotate the entire assembly of gears based on how the user
+	    // dragged the mouse around
+	    gl.glPushMatrix();
+	    gl.glRotatef(view_rotx, 1.0f, 0.0f, 0.0f);
+	    gl.glRotatef(view_roty, 0.0f, 1.0f, 0.0f);
 
-		textures[currentTextureFilter].enable(gl);
-		textures[currentTextureFilter].bind(gl);
-
-		//light control
-		if (isLightOn) {
-			gl.glEnable(GL2.GL_LIGHTING);
-		} else {
-			gl.glDisable(GL2.GL_LIGHTING);
-		}
 		
-		// Blending control
-		if (blendingEnabled) {
-			gl.glEnable(GL2.GL_BLEND);
-			gl.glDisable(GL2.GL_DEPTH_TEST);
-		} else {
-			gl.glDisable(GL2.GL_BLEND);
-			gl.glEnable(GL2.GL_DEPTH_TEST);
-		}
-
-		gl.glBegin(GL2.GL_QUADS);
-
-		// front
-		gl.glNormal3f(0.0f, 0.0f, 1.0f);
-		gl.glTexCoord2f(textureLeft, textureBottom);
-		gl.glVertex3f(-1.0f, -1.0f, 1.0f);
-		gl.glTexCoord2f(textureRight, textureBottom);
-		gl.glVertex3f(1.0f, -1.0f, 1.0f);
-		gl.glTexCoord2f(textureRight, textureTop);
-		gl.glVertex3f(1.0f, 1.0f, 1.0f);
-		gl.glTexCoord2f(textureLeft, textureTop);
-		gl.glVertex3f(-1.0f, 1.0f, 1.0f);
-
-		// back
-		gl.glNormal3f(0.0f, 0.0f, -1.0f);
-		gl.glTexCoord2f(textureRight, textureBottom);
-		gl.glVertex3f(-1.0f, -1.0f, -1.0f);
-		gl.glTexCoord2f(textureRight, textureTop);
-		gl.glVertex3f(-1.0f, 1.0f, -1.0f);
-		gl.glTexCoord2f(textureLeft, textureTop);
-		gl.glVertex3f(1.0f, 1.0f, -1.0f);
-		gl.glTexCoord2f(textureLeft, textureBottom);
-		gl.glVertex3f(1.0f, -1.0f, -1.0f);
-
-		// top
-		gl.glNormal3f(0.0f, 1.0f, 0.0f);
-		gl.glTexCoord2f(textureLeft, textureTop);
-		gl.glVertex3f(-1.0f, 1.0f, -1.0f);
-		gl.glTexCoord2f(textureLeft, textureBottom);
-		gl.glVertex3f(-1.0f, 1.0f, 1.0f);
-		gl.glTexCoord2f(textureRight, textureBottom);
-		gl.glVertex3f(1.0f, 1.0f, 1.0f);
-		gl.glTexCoord2f(textureRight, textureTop);
-		gl.glVertex3f(1.0f, 1.0f, -1.0f);
-
-		// bottom
-		gl.glNormal3f(0.0f, -1.0f, 0.0f);
-		gl.glTexCoord2f(textureRight, textureTop);
-		gl.glVertex3f(-1.0f, -1.0f, -1.0f);
-		gl.glTexCoord2f(textureLeft, textureTop);
-		gl.glVertex3f(1.0f, -1.0f, -1.0f);
-		gl.glTexCoord2f(textureLeft, textureBottom);
-		gl.glVertex3f(1.0f, -1.0f, 1.0f);
-		gl.glTexCoord2f(textureRight, textureBottom);
-		gl.glVertex3f(-1.0f, -1.0f, 1.0f);
-
-		// right
-		gl.glNormal3f(1.0f, 0.0f, 0.0f);
-		gl.glTexCoord2f(textureRight, textureBottom);
-		gl.glVertex3f(1.0f, -1.0f, -1.0f);
-		gl.glTexCoord2f(textureRight, textureTop);
-		gl.glVertex3f(1.0f, 1.0f, -1.0f);
-		gl.glTexCoord2f(textureLeft, textureTop);
-		gl.glVertex3f(1.0f, 1.0f, 1.0f);
-		gl.glTexCoord2f(textureLeft, textureBottom);
-		gl.glVertex3f(1.0f, -1.0f, 1.0f);
-
-		// left
-		gl.glNormal3f(-1.0f, 0.0f, 0.0f);
-		gl.glTexCoord2f(textureLeft, textureBottom);
-		gl.glVertex3f(-1.0f, -1.0f, -1.0f);
-		gl.glTexCoord2f(textureRight, textureBottom);
-		gl.glVertex3f(-1.0f, -1.0f, 1.0f);
-		gl.glTexCoord2f(textureRight, textureTop);
-		gl.glVertex3f(-1.0f, 1.0f, 1.0f);
-		gl.glTexCoord2f(textureLeft, textureTop);
-		gl.glVertex3f(-1.0f, 1.0f, -1.0f);
-
-		gl.glEnd();
-
-		xrot += xspeed;
-		yrot += yspeed;
 
 		if (showFPS) {
 			computeFPS();
@@ -215,7 +146,63 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	public void dispose(GLAutoDrawable glDrawable) {
 
 	}
-
+	
+	private void readOff(String filename) throws Exception {
+		URL fileURL = getClass().getClassLoader().getResource(filename);
+		BufferedReader br = new BufferedReader(new InputStreamReader(fileURL.openStream()));
+		String line = br.readLine();
+		if(line.compareToIgnoreCase("off")!=0){
+			System.err.println("Invalid off model file!");
+			return;
+		}
+		int nverts = 0;
+		int nfaces = 0;
+		line = br.readLine();
+		String[] temp = line.split(" ");
+		nverts = Integer.parseInt(temp[0]);
+		nfaces = Integer.parseInt(temp[1]);
+		
+		System.out.println("Model has " +nverts +" vertices, and "+ nfaces+" faces.");
+		
+		VERTICES = new float[nverts][3];
+		FACES = new float[nfaces][3];
+		
+		int i = 0;
+		
+		for(i = 0; i< nverts;i++){
+			line = br.readLine();
+			temp = line.split(" ");
+			VERTICES[i][0] = Float.parseFloat(temp[0]);
+			VERTICES[i][1] = Float.parseFloat(temp[1]);
+			VERTICES[i][2] = Float.parseFloat(temp[2]);
+		}
+		
+		for(i=0; i<nfaces;i++){
+			line = br.readLine();
+			temp = line.split(" ");
+			if(temp[0].compareToIgnoreCase("3")!=0){
+				System.out.println("Invalid off model file!");
+				return;
+			}
+			FACES[i][0] = Float.parseFloat(temp[1]);
+			FACES[i][1] = Float.parseFloat(temp[2]);
+			FACES[i][2] = Float.parseFloat(temp[3]);
+		}
+		br.close();
+	}
+	
+	private void dumpMatrix(float[][] matrix){
+		
+		System.out.println("Matrix size is: "+ matrix.length +" X "+matrix[0].length);
+		
+		for(int i=0; i< matrix.length;i++){
+			for(int j=0;j< matrix[0].length;j++){
+				System.out.print(matrix[i][j]+" ");
+			}
+			System.out.println();
+		}
+	}
+	
 	@Override
 	public void init(GLAutoDrawable glDrawable) {
 		// get openGL 3.0 context
@@ -236,55 +223,38 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		myFPS = 0;
 		showFPS = true;
 
-		// load texture
-		try {
-
-			URL imageURL = getClass().getClassLoader().getResource(imageDir);
-			// first image filter: linear
-			textures[0] = TextureIO.newTexture(imageURL, false, imageType);
-			gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER,
-					GL.GL_LINEAR);
-			gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER,
-					GL.GL_LINEAR);
-			// second image filter: nearest
-			textures[1] = TextureIO.newTexture(imageURL, false, imageType);
-			gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER,
-					GL.GL_NEAREST);
-			gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER,
-					GL.GL_NEAREST);
-			// third image filter: mipmap
-			textures[2] = TextureIO.newTexture(imageURL, true, imageType);
-			gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER,
-					GL.GL_NEAREST);
-			gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER,
-					GL.GL_LINEAR_MIPMAP_NEAREST);
-
-			// record texture coords
-			TextureCoords textureCoords = textures[0].getImageTexCoords();
-			textureTop = textureCoords.top();
-			textureBottom = textureCoords.bottom();
-			textureLeft = textureCoords.left();
-			textureRight = textureCoords.right();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		
 
 		// init light source
-		float[] lightAmbientValue = { 0.5f, 0.5f, 0.5f, 1.0f };
-		float[] lightDiffuseValue = { 1.0f, 1.0f, 1.0f, 1.0f };
-		float lightDiffusePosition[] = { 0.0f, 0.0f, 2.0f, 1.0f };
-		gl.glLightfv(GL2.GL_LIGHT1, GL2.GL_AMBIENT, lightAmbientValue, 0);
-		gl.glLightfv(GL2.GL_LIGHT1, GL2.GL_DIFFUSE, lightDiffuseValue, 0);
-		gl.glLightfv(GL2.GL_LIGHT1, GL2.GL_POSITION, lightDiffusePosition, 0);
-		gl.glEnable(GL2.GL_LIGHT1);
-		gl.glDisable(GL2.GL_LIGHTING);
+		float[] mat_front = { 1.0f, 0.95f, 0.9f, 1f };
+		float[] mat_back = { 0.7f, 0.6f, 0.6f, 1f };
+		float[] mat_specular = { 0.18f, 0.18f, 0.18f, 0.18f };
+		float[] mat_shininess = { 64f };
+		float[] global_ambient = { 0.02f, 0.02f, 0.05f, 0.05f };
+		float[] light0_ambient = { 0f, 0f, 0f, 0f };
+		float[] light0_diffuse = { 0.85f, 0.85f, 0.8f, 0.85f };
+		float[] light0_specular = { 0.85f, 0.85f, 0.85f, 0.85f };
+		gl.glMaterialfv(GL2.GL_FRONT, GL2.GL_AMBIENT_AND_DIFFUSE, mat_front,0);
+		gl.glMaterialfv(GL2.GL_BACK, GL2.GL_AMBIENT_AND_DIFFUSE, mat_back,0);
+		gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, mat_specular,0);
+		gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_SHININESS, mat_shininess,0);
+		gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_AMBIENT, light0_ambient,0);
+		gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_DIFFUSE, light0_diffuse,0);
+		gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_SPECULAR, light0_specular,0);
+		gl.glLightModelfv(GL2.GL_LIGHT_MODEL_AMBIENT, global_ambient,0);
+		gl.glLightModeli(GL2.GL_LIGHT_MODEL_LOCAL_VIEWER, GL2.GL_FALSE);
+		gl.glLightModeli(GL2.GL_LIGHT_MODEL_TWO_SIDE, GL2.GL_TRUE);
+		gl.glEnable(GL2.GL_LIGHTING);
+		gl.glEnable(GL2.GL_LIGHT0);
 
-		//init blend
-		gl.glColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-		gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE);
-		gl.glEnable(GL2.GL_BLEND);
-		gl.glDisable(GL2.GL_DEPTH_TEST);
-
+		try{
+			readOff(modelFileName);
+			dumpMatrix(VERTICES);
+			dumpMatrix(FACES);
+		}catch(Exception ex){
+			System.err.println("Invalid off model file! " +ex);
+		}
+		
 	}
 
 	@Override
@@ -379,12 +349,60 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	}
 
 	@Override
+	public void mouseDragged(MouseEvent e) {
+        int x = e.getX();
+        int y = e.getY();
+        int width=0, height=0;
+        Object source = e.getSource();
+        if(source instanceof Window) {
+            Window window = (Window) source;
+            width=window.getWidth();
+            height=window.getHeight();
+        } else if (GLProfile.isAWTAvailable() && source instanceof java.awt.Component) {
+            java.awt.Component comp = (java.awt.Component) source;
+            width=comp.getWidth();
+            height=comp.getHeight();
+        } else {
+            throw new RuntimeException("Event source neither Window nor Component: "+source);
+        }
+        float thetaY = 360.0f * ( (float)(x-prevMouseX)/(float)width);
+        float thetaX = 360.0f * ( (float)(y-prevMouseY)/(float)height);
+        
+        System.out.println(thetaY + " "+ thetaX);
+        
+        //prevMouseX = x;
+        //prevMouseY = y;
+
+        //view_rotx += thetaX;
+        //view_roty += thetaY;
+      }
+	
+	@Override
 	public void mousePressed(MouseEvent e) {
-		
+		prevMouseX = e.getX();
+        prevMouseY = e.getY();
+		if(e.getButton() == e.BUTTON1){
+			//System.out.println("Mouse left button pressed!");
+		}
+		if(e.getButton() == e.BUTTON2){
+			//System.out.println("Mouse center button pressed!");
+		}
+		if(e.getButton() == e.BUTTON3){
+			//System.out.println("Mouse right button pressed!");
+		}
+		if(e.getClickCount() == 2){
+			//System.out.println("Mouse double click!");
+		}
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
+		
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent arg0) {
+		// TODO Auto-generated method stub
 		
 	}
 
