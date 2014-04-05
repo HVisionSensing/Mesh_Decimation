@@ -15,10 +15,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 
 import static java.awt.event.KeyEvent.VK_DOWN;
-import static java.awt.event.KeyEvent.VK_B;
+import static java.awt.event.KeyEvent.VK_E;
 import static java.awt.event.KeyEvent.VK_F;
 import static java.awt.event.KeyEvent.VK_L;
 import static java.awt.event.KeyEvent.VK_LEFT;
@@ -39,21 +40,18 @@ import javax.media.opengl.glu.GLU;
 import com.jogamp.newt.Window;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.awt.TextRenderer;
-import com.jogamp.opengl.util.texture.Texture;
-import com.jogamp.opengl.util.texture.TextureCoords;
-import com.jogamp.opengl.util.texture.TextureIO;
 
 public class Main extends Applet implements GLEventListener, KeyListener, MouseListener, MouseMotionListener{
 
 	// Applet configure
 	private static final long serialVersionUID = 1L;
 
-	private final int WIDTH = 640;
-	private final int HEIGHT = 480;
+	private int WIDTH = 640; // default window width
+	private int HEIGHT = 480; // default window height
 	private final int EXPECTED_FPS = 60;
 	
 	private final String modelFileName = "model/test.off";
-	private final String modelFileType = ".off";
+	//private final String modelFileType = ".off";
 
 	private GLAnimatorControl animator;
 
@@ -94,10 +92,30 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	// for the GL Utility
 	private GLU glu = new GLU();
 	private int prevMouseX, prevMouseY;
-	private float view_rotx = 20.0f, view_roty = 30.0f;
+	private float view_rotx = 20.0f, view_roty = 30.0f, view_rotz = 0.0f;
+	private float X_pos = 0.0f;
+	private float Y_pos = 0.0f;
+	private float Z_pos = -10.0f;
+	private int mouseID =0;//0-left, 1-middle, 2-right
 	
-	private float[][] VERTICES;
-	private float[][] FACES;
+	private final float DOF = 10.0f;
+	private final float MAXDOF = 10000.0f;
+	
+	private final float[] mat_front = { 1.0f, 0.95f, 0.9f, 1f };
+	private final float[] mat_back = { 0.7f, 0.6f, 0.6f, 1f };
+	private final float[] mat_specular = { 0.18f, 0.18f, 0.18f, 0.18f };
+	private final float[] mat_shininess = { 64f };
+	private final float[] global_ambient = { 0.02f, 0.02f, 0.05f, 0.05f };
+	private final float[] light0_ambient = { 0f, 0f, 0f, 0f };
+	private final float[] light0_diffuse = { 0.85f, 0.85f, 0.8f, 0.85f };
+	private final float[] light0_specular = { 0.85f, 0.85f, 0.85f, 0.85f };
+	
+	private Vector3D[] VERTICES;
+	private int[][] FACES;
+	private Vector3D CENTER;
+	private float SIZE = 0.0f;
+	
+	private boolean drawEdges = false;
 	
 	
 	// for computing FPS
@@ -109,34 +127,107 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	private final Font fpsFont = new Font("Consolas", Font.PLAIN, 17);
 	String fpsStr = "";
 	TextRenderer textrenderer = new TextRenderer(fpsFont);
-
-	boolean drawEdges = false;
-
-	//enable light
-	private boolean isLightOn = false;
-	//enable texture blending
-	private boolean blendingEnabled = true;
-
+	
 	@Override
 	public void display(GLAutoDrawable glDrawable) {
-		GL2 gl = glDrawable.getGL().getGL2();
+		
+		GL2 gl = glDrawable.getGL().getGL2();	
+		
+		gl.glClearColor(1, 1, 1, 0);
+		gl.glClearDepth(1);
 		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 		gl.glLoadIdentity();
-
-		// Rotate the entire assembly of gears based on how the user
-	    // dragged the mouse around
-	    gl.glPushMatrix();
-	    gl.glRotatef(view_rotx, 1.0f, 0.0f, 0.0f);
-	    gl.glRotatef(view_roty, 0.0f, 1.0f, 0.0f);
-
 		
+
+		gl.glMaterialfv(GL2.GL_FRONT, GL2.GL_AMBIENT_AND_DIFFUSE, mat_front,0);
+		gl.glMaterialfv(GL2.GL_BACK, GL2.GL_AMBIENT_AND_DIFFUSE, mat_back,0);
+		gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, mat_specular,0);
+		gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_SHININESS, mat_shininess,0);
+		gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_AMBIENT, light0_ambient,0);
+		gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_DIFFUSE, light0_diffuse,0);
+		gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_SPECULAR, light0_specular,0);
+		gl.glLightModelfv(GL2.GL_LIGHT_MODEL_AMBIENT, global_ambient,0);
+		gl.glLightModeli(GL2.GL_LIGHT_MODEL_LOCAL_VIEWER, GL2.GL_FALSE);
+		gl.glLightModeli(GL2.GL_LIGHT_MODEL_TWO_SIDE, GL2.GL_TRUE);
+		gl.glEnable(GL2.GL_LIGHTING);
+		gl.glEnable(GL2.GL_LIGHT0);
+	    
+	    gl.glDepthFunc(GL2.GL_LESS);
+	    gl.glEnable(GL2.GL_DEPTH_TEST);
+	    gl.glDisable(GL2.GL_CULL_FACE);
+	    gl.glShadeModel(GL2.GL_FLAT);
+	    gl.glEnable(GL2.GL_NORMALIZE);
+	    
+	    gl.glPushMatrix();
+	    gl.glTranslatef(X_pos, Y_pos, Z_pos);
+
+		gl.glPushMatrix();
+		gl.glRotatef(view_rotx, 1.0f, 0.0f, 0.0f);
+		gl.glRotatef(view_roty, 0.0f, 1.0f, 0.0f);
+		gl.glRotatef(view_rotz, 0.0f, 0.0f, 1.0f);
+		// gl.glPopMatrix();
+	   
+		//gl.glPopMatrix();
+	    
+	    // Draw mesh - first pass
+	    if (drawEdges) {
+	      gl.glPolygonOffset(1, 1);
+	      gl.glEnable(GL2.GL_POLYGON_OFFSET_FILL);
+	    }
+	    gl.glBegin(GL2.GL_TRIANGLES);
+	    int nf = FACES.length;
+	    for (int i = 0; i < nf; i++) {
+	      Vector3D v0 = VERTICES[FACES[i][0]].copy();
+	      Vector3D v1 = VERTICES[FACES[i][1]].copy();
+	      Vector3D v2 = VERTICES[FACES[i][2]].copy();
+	      v1.subtract(v0);
+	      v2.subtract(v0);
+	      Vector3D norm = v1.crossProduct(v2);
+	      
+	      gl.glNormal3fv(norm.toArray(), 0);
+	      gl.glVertex3fv(VERTICES[FACES[i][0]].toArray(), 0);
+	      gl.glVertex3fv(VERTICES[FACES[i][1]].toArray(), 0);
+	      gl.glVertex3fv(VERTICES[FACES[i][2]].toArray(), 0);
+	    }
+	    gl.glEnd();
+
+	    // Draw mesh - second pass to draw the edges on top
+	    if (drawEdges) {
+	      gl.glDisable(GL2.GL_POLYGON_OFFSET_FILL);
+	      gl.glPolygonMode(GL2.GL_FRONT_AND_BACK, GL2.GL_LINE);
+	      gl.glLineWidth(1.0f);
+	      float[] mat_diffuse= { 0.0f, 0.0f, 1.0f, 1.0f };
+	      gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_AMBIENT_AND_DIFFUSE, mat_diffuse, 0);
+	      gl.glBegin(GL2.GL_TRIANGLES);
+	      for (int i = 0; i < nf; i++) {
+	    	  Vector3D v0 = VERTICES[FACES[i][0]].copy();
+		      Vector3D v1 = VERTICES[FACES[i][1]].copy();
+		      Vector3D v2 = VERTICES[FACES[i][2]].copy();
+		      v1.subtract(v0);
+		      v2.subtract(v0);
+		      Vector3D norm = v1.crossProduct(v2);
+		      
+		      gl.glNormal3fv(norm.toArray(), 0);
+		      gl.glVertex3fv(VERTICES[FACES[i][0]].toArray(), 0);
+		      gl.glVertex3fv(VERTICES[FACES[i][1]].toArray(), 0);
+		      gl.glVertex3fv(VERTICES[FACES[i][2]].toArray(), 0);
+	      }
+	      gl.glEnd();
+	      gl.glPolygonMode(GL2.GL_FRONT_AND_BACK, GL2.GL_FILL);
+	    }
+
+	    gl.glPopMatrix();
+	    gl.glDisable(GL2.GL_DEPTH_TEST);
+	    gl.glDisable(GL2.GL_LIGHTING);
+	    
 
 		if (showFPS) {
 			computeFPS();
 			textrenderer.beginRendering(glDrawable.getWidth(),
 					glDrawable.getHeight());
-			gl.glColor3f(0.8f, 0.8f, 0.8f);
+			gl.glColor3f(0.1f, 0.1f, 0.1f);
 			textrenderer.draw("FPS: " + fpsStr, 10, 10);
+			textrenderer.draw("Hold mouse left to drag, middle to move, right to zoom", 10, HEIGHT-20);
 			textrenderer.endRendering();
 		}
 
@@ -164,17 +255,18 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		
 		System.out.println("Model has " +nverts +" vertices, and "+ nfaces+" faces.");
 		
-		VERTICES = new float[nverts][3];
-		FACES = new float[nfaces][3];
+		VERTICES = new Vector3D[nverts];
+		FACES = new int[nfaces][3];
 		
 		int i = 0;
 		
 		for(i = 0; i< nverts;i++){
 			line = br.readLine();
 			temp = line.split(" ");
-			VERTICES[i][0] = Float.parseFloat(temp[0]);
-			VERTICES[i][1] = Float.parseFloat(temp[1]);
-			VERTICES[i][2] = Float.parseFloat(temp[2]);
+			VERTICES[i] = new Vector3D();
+			VERTICES[i].setX(Float.parseFloat(temp[0]));
+			VERTICES[i].setY(Float.parseFloat(temp[1]));
+			VERTICES[i].setZ(Float.parseFloat(temp[2]));
 		}
 		
 		for(i=0; i<nfaces;i++){
@@ -184,14 +276,33 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 				System.out.println("Invalid off model file!");
 				return;
 			}
-			FACES[i][0] = Float.parseFloat(temp[1]);
-			FACES[i][1] = Float.parseFloat(temp[2]);
-			FACES[i][2] = Float.parseFloat(temp[3]);
+			FACES[i][0] = Integer.parseInt(temp[1]);
+			FACES[i][1] = Integer.parseInt(temp[2]);
+			FACES[i][2] = Integer.parseInt(temp[3]);
 		}
 		br.close();
+		
+		//compute center and size
+		Vector3D minpt = VERTICES[0].copy();
+		Vector3D maxpt = VERTICES[0].copy();
+		
+		for(i=0 ;i<VERTICES.length;i++){
+			if(VERTICES[i].X < minpt.X ) minpt.setX(VERTICES[i].X);
+			if(VERTICES[i].X > maxpt.X ) maxpt.setX(VERTICES[i].X);
+			if(VERTICES[i].Y < minpt.Y ) minpt.setY(VERTICES[i].Y);
+			if(VERTICES[i].Y > maxpt.Y ) maxpt.setY(VERTICES[i].Y);
+			if(VERTICES[i].Z < minpt.Z ) minpt.setZ(VERTICES[i].Z);
+			if(VERTICES[i].Z > maxpt.Z ) maxpt.setZ(VERTICES[i].Z);
+		}
+		
+		CENTER = minpt.copy();
+		CENTER.add(maxpt);
+		CENTER.scale(0.5f);
+		
+		SIZE = 0.5f * minpt.computeDistance(maxpt);
 	}
 	
-	private void dumpMatrix(float[][] matrix){
+	private void dumpMatrix(int[][] matrix){
 		
 		System.out.println("Matrix size is: "+ matrix.length +" X "+matrix[0].length);
 		
@@ -200,6 +311,13 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 				System.out.print(matrix[i][j]+" ");
 			}
 			System.out.println();
+		}
+	}
+	
+	private void dumpMatrix(Vector3D[] vec){
+		System.out.println("Matrix size is: "+ vec.length +" X 3");
+		for(int i=0;i<vec.length;i++){
+			System.out.println(vec[i].X +" "+vec[i].Y +" "+vec[i].Z);
 		}
 	}
 	
@@ -224,16 +342,7 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		showFPS = true;
 
 		
-
 		// init light source
-		float[] mat_front = { 1.0f, 0.95f, 0.9f, 1f };
-		float[] mat_back = { 0.7f, 0.6f, 0.6f, 1f };
-		float[] mat_specular = { 0.18f, 0.18f, 0.18f, 0.18f };
-		float[] mat_shininess = { 64f };
-		float[] global_ambient = { 0.02f, 0.02f, 0.05f, 0.05f };
-		float[] light0_ambient = { 0f, 0f, 0f, 0f };
-		float[] light0_diffuse = { 0.85f, 0.85f, 0.8f, 0.85f };
-		float[] light0_specular = { 0.85f, 0.85f, 0.85f, 0.85f };
 		gl.glMaterialfv(GL2.GL_FRONT, GL2.GL_AMBIENT_AND_DIFFUSE, mat_front,0);
 		gl.glMaterialfv(GL2.GL_BACK, GL2.GL_AMBIENT_AND_DIFFUSE, mat_back,0);
 		gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_SPECULAR, mat_specular,0);
@@ -249,8 +358,8 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 
 		try{
 			readOff(modelFileName);
-			dumpMatrix(VERTICES);
-			dumpMatrix(FACES);
+			//dumpMatrix(VERTICES);
+			//dumpMatrix(FACES);
 		}catch(Exception ex){
 			System.err.println("Invalid off model file! " +ex);
 		}
@@ -281,6 +390,9 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glLoadIdentity(); // reset
 
+		WIDTH = width;
+		HEIGHT = height;
+		
 	}
 
 	private double computeFPS() {
@@ -303,7 +415,8 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		int keyCode = e.getKeyCode();
 		
 		switch (keyCode) {
-		case VK_B:
+		case VK_E:
+			drawEdges = !drawEdges;
             break;
 		case VK_L:
 			break;
@@ -368,13 +481,20 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
         float thetaY = 360.0f * ( (float)(x-prevMouseX)/(float)width);
         float thetaX = 360.0f * ( (float)(y-prevMouseY)/(float)height);
         
-        System.out.println(thetaY + " "+ thetaX);
-        
-        //prevMouseX = x;
-        //prevMouseY = y;
+        prevMouseX = x;
+        prevMouseY = y;
 
-        //view_rotx += thetaX;
-        //view_roty += thetaY;
+        if(mouseID == 0){
+        	view_rotx += thetaX;
+        	view_roty += thetaY;
+        }
+        else if(mouseID == 1){
+        	X_pos += thetaY/3;
+        	Y_pos -= thetaX/3;
+        }
+        else if(mouseID == 2){
+        	Z_pos += thetaX;
+        }
       }
 	
 	@Override
@@ -382,12 +502,15 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		prevMouseX = e.getX();
         prevMouseY = e.getY();
 		if(e.getButton() == e.BUTTON1){
+			mouseID = 0;
 			//System.out.println("Mouse left button pressed!");
 		}
 		if(e.getButton() == e.BUTTON2){
+			mouseID = 1;
 			//System.out.println("Mouse center button pressed!");
 		}
 		if(e.getButton() == e.BUTTON3){
+			mouseID = 2;
 			//System.out.println("Mouse right button pressed!");
 		}
 		if(e.getClickCount() == 2){
@@ -402,7 +525,6 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 
 	@Override
 	public void mouseMoved(MouseEvent arg0) {
-		// TODO Auto-generated method stub
 		
 	}
 

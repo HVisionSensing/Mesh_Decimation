@@ -50,6 +50,7 @@ public class Vector3D {
 	}
 
 	public void computeMagnitude() {
+		computeSquareMagnitude();
 		magnitude = (float) Math.sqrt(squareMagnitude);
 	}
 
@@ -61,6 +62,18 @@ public class Vector3D {
 		return squareMagnitude;
 	}
 
+	/**
+	 * Compute the distance from another vector to this vector
+	 * @param vec
+	 * @return distance
+	 */
+	public float computeDistance(Vector3D vec){
+		Vector3D temp = this.copy();
+		temp.subtract(vec);
+		temp.computeMagnitude();
+		return temp.magnitude;
+	}
+	
 	public void normalize() {
 		X = X / magnitude;
 		Y = Y / magnitude;
@@ -92,9 +105,9 @@ public class Vector3D {
 	}
 
 	public void subtract(Vector3D vector) {
-		X = X + vector.X;
-		Y = Y + vector.Y;
-		Z = Z + vector.Z;
+		X = X - vector.X;
+		Y = Y - vector.Y;
+		Z = Z - vector.Z;
 	}
 
 	public Vector3D componentProduct(Vector3D vector) {
@@ -168,6 +181,14 @@ public class Vector3D {
 
 		Vector3D temp = (Vector3D) obj;
 		return (temp.X == X && temp.Y == Y && temp.Z == Z);
+	}
+	
+	public Vector3D copy(){
+		return new Vector3D(X,Y,Z);
+	}
+	
+	public float[] toArray(){
+		return new float[]{X,Y,Z};
 	}
 
 	@Override
