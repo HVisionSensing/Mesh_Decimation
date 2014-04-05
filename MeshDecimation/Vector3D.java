@@ -26,7 +26,18 @@ public class Vector3D {
 		Y = y;
 		Z = z;
 	}
-
+	
+	/***
+	 * Reset all attributes to default
+	 */
+	public void reset(){
+		X = 0f;
+		Y = 0f;
+		Z = 0f;
+		magnitude = 0f;
+		squareMagnitude = 0f;
+	}
+	
 	public void setX(float x) {
 		X = x;
 	}

@@ -115,6 +115,14 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	private Vector3D CENTER;
 	private float SIZE = 0.0f;
 	
+	private LinkedList<HE_Edge> heEdgeList = new LinkedList<HE_Edge>();
+	private LinkedList<HE_Vert> heVertList = new LinkedList<HE_Vert>();
+	private LinkedList<HE_Face> heFaceList = new LinkedList<HE_Face>();
+	
+	//private HE_Edge[] heEdgeArray;
+	//private HE_Vert[] heVertArray;
+	//private HE_Face[] heFaceArray;
+	
 	private boolean drawEdges = false;
 	
 	
@@ -226,8 +234,10 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 			textrenderer.beginRendering(glDrawable.getWidth(),
 					glDrawable.getHeight());
 			gl.glColor3f(0.1f, 0.1f, 0.1f);
-			textrenderer.draw("FPS: " + fpsStr, 10, 10);
-			textrenderer.draw("Hold mouse left to drag, middle to move, right to zoom", 10, HEIGHT-20);
+			String temp = " Vertices: "+heVertList.size()+" Edges: "+(heEdgeList.size())/2 + " Faces: "+heFaceList.size();
+			textrenderer.draw("FPS: " + fpsStr + temp, 10, 10);
+			textrenderer.draw("Hold mouse left to drag, middle to move, right to zoom.", 10, HEIGHT-20);
+			textrenderer.draw("Press E to show mesh edges, E to decimate meshes.", 10, HEIGHT-40);
 			textrenderer.endRendering();
 		}
 
@@ -300,6 +310,192 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		CENTER.scale(0.5f);
 		
 		SIZE = 0.5f * minpt.computeDistance(maxpt);
+		
+		
+		//Construct half edge data structure
+		//Loop all faces
+		int j=0;
+		for(i=0;i<nfaces;i++){
+			//Three vertices from a face
+			HE_Vert v1 = null;
+			HE_Vert v2 = null;
+			HE_Vert v3 = null;
+			HE_Edge e1 = null;
+			HE_Edge e2 = null;
+			HE_Edge e3 = null;
+			HE_Face f = null;
+			
+			boolean v1_new = true;
+			boolean v2_new = true;
+			boolean v3_new = true;
+			
+			//Check if this vertex is an existing one
+			for(j = 0;j<heVertList.size();j++){
+				if(heVertList.get(j).coordinate.equals(VERTICES[FACES[i][0]])){
+					v1_new = false;
+					v1 = heVertList.get(j);
+				}
+				if(heVertList.get(j).coordinate.equals(VERTICES[FACES[i][1]])){
+					v2_new = false;
+					v2 = heVertList.get(j);
+				}
+				if(heVertList.get(j).coordinate.equals(VERTICES[FACES[i][2]])){
+					v3_new = false;
+					v3 = heVertList.get(j);
+				}
+			}
+			
+			if(v1_new){
+				v1 = new HE_Vert( VERTICES[FACES[i][0]] );
+				heVertList.add(v1);
+			}
+			if(v2_new){
+				v2 = new HE_Vert( VERTICES[FACES[i][1]] );
+				heVertList.add(v2);
+			}
+			if(v3_new){
+				v3 = new HE_Vert( VERTICES[FACES[i][2]] );
+				heVertList.add(v3);
+			}
+			
+			//Create HE_edges
+			e1 = new HE_Edge();
+			heEdgeList.add(e1);
+			e2 = new HE_Edge();
+			heEdgeList.add(e2);
+			e3 = new HE_Edge();
+			heEdgeList.add(e3);
+			
+			//Create HE_Face
+			f = new HE_Face();
+			heFaceList.add(f);
+			
+			//make connection
+			f.edge = e1; //here choose the first
+			v1.edge = e1;
+			v2.edge = e2;
+			v3.edge = e3;
+			
+			e1.v_begin = v1;
+			e1.he_inv = null;
+			e1.f_left = f;
+			e1.he_next = e2;
+			
+			e2.v_begin = v2;
+			e2.he_inv = null;
+			e2.f_left = f;
+			e2.he_next = e3;
+			
+			e3.v_begin = v3;
+			e3.he_inv = null;
+			e3.f_left = f;
+			e3.he_next = e1;
+			
+			// pair match, loop remain edges
+			for (int e_i = heEdgeList.size()-4; e_i >= 0; e_i--){
+				// CASE 1: Normal half edges pointing in opposite directions
+				if (heEdgeList.get(e_i).v_begin == e1.he_next.v_begin
+						&& heEdgeList.get(e_i).he_next.v_begin == e1.v_begin){
+					heEdgeList.get(e_i).he_inv = e1;
+					e1.he_inv = heEdgeList.get(e_i);
+					continue; // Should be a unique half-edge matching
+				}
+				if (heEdgeList.get(e_i).v_begin == e2.he_next.v_begin
+						&& heEdgeList.get(e_i).he_next.v_begin == e2.v_begin){
+					heEdgeList.get(e_i).he_inv = e2;
+					e2.he_inv = heEdgeList.get(e_i);
+					continue;
+				}
+				if (heEdgeList.get(e_i).v_begin == e3.he_next.v_begin 
+						&& heEdgeList.get(e_i).he_next.v_begin == e3.v_begin){
+					heEdgeList.get(e_i).he_inv = e3;
+					e3.he_inv = heEdgeList.get(e_i);
+					continue;
+				}
+				
+				// CASE 2: Normal half edges pointing in same direction
+				if (heEdgeList.get(e_i).v_begin == e1.v_begin 
+						&& heEdgeList.get(e_i).he_next.v_begin == e1.he_next.v_begin){
+					heEdgeList.get(e_i).he_inv = e1;
+					e1.he_inv = heEdgeList.get(e_i);
+					continue;
+				}
+				if (heEdgeList.get(e_i).v_begin == e2.v_begin 
+						&& heEdgeList.get(e_i).he_next.v_begin == e2.he_next.v_begin){
+					heEdgeList.get(e_i).he_inv = e2;
+					e2.he_inv = heEdgeList.get(e_i);
+					continue;
+				}
+				if (heEdgeList.get(e_i).v_begin == e3.v_begin 
+						&& heEdgeList.get(e_i).he_next.v_begin == e3.he_next.v_begin){
+					heEdgeList.get(e_i).he_inv = e3;
+					e3.he_inv = heEdgeList.get(e_i);
+					continue;
+				}
+			}
+			
+			v1 = null;
+			v2 = null;
+			v3 = null;
+			e1 = null;
+			e2 = null;
+			e3 = null;
+			f = null;
+		}
+		
+
+		
+		// Now make the boundary consistent
+		outer:
+		for (i = 0; i < heVertList.size(); i++){
+			
+			// Find one boundary edge
+			if (heVertList.get(i).edge.he_inv == null){
+				HE_Edge edge = heVertList.get(i).edge;
+				HE_Edge edgec = heVertList.get(i).edge;
+				// Create the inverse edge
+				HE_Edge inv = new HE_Edge();
+				heEdgeList.add(inv);
+				
+				// Link the edges
+				inv.he_inv = edge;
+				inv.f_left = null;
+				edge.he_inv = inv;
+				
+				//Link vertex
+				inv.v_begin = edge.he_next.v_begin;
+				
+				do{
+					HE_Edge next_inv = edge.he_next.he_next;
+					if(next_inv == edgec){
+						inv.he_next = edgec.he_inv;
+						break;
+					}
+					while (next_inv.he_inv != null){
+						if (next_inv == edgec){
+							inv.he_next = edgec.he_inv;
+							continue outer;
+						}
+						next_inv = next_inv.he_inv.he_next.he_next;
+					}
+					
+					// Create the next inverse edge around boundary
+					HE_Edge new_inv = new HE_Edge();
+					
+					// Link the previous edge and this new edge together
+					inv.he_next = new_inv;
+					heEdgeList.add(new_inv);
+					next_inv.he_inv = new_inv;
+					new_inv.he_inv = next_inv;
+					new_inv.v_begin = inv.he_inv.v_begin;
+					new_inv.f_left = null;
+					
+					inv = new_inv;
+					edge = new_inv.he_inv;
+					
+				} while (edge != edgec);					
+			}	
+		}
 	}
 	
 	private void dumpMatrix(int[][] matrix){
