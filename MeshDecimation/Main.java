@@ -584,10 +584,6 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		} while (c_edge != edge && c_edge != edge.he_inv);
 
 		
-		for(int i=0;i<adj_count;i++){
-			System.out.println(adj_edges[i].index);
-		}
-		
 		// Determine new vertex position
 		HE_Vert v0 = edge.v_begin;
 		HE_Vert v1 = edge.he_inv.v_begin;
