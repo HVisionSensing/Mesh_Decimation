@@ -5,6 +5,8 @@ public class HE_Edge {
 	public HE_Edge he_inv;// oppositely oriented adjacent half-edge
 	public HE_Face f_left; // face the half-edge borders (face usually on the left)
 	public HE_Edge he_next;// next half-edge around the face (counter-clockwise)
+	
+	public int index;
 
     public HE_Edge(){
     	

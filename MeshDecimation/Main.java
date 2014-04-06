@@ -123,6 +123,8 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	//private HE_Vert[] heVertArray;
 	//private HE_Face[] heFaceArray;
 	
+	private int testVert = 11;
+	
 	private boolean drawEdges = false;
 	
 	
@@ -176,6 +178,17 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		// gl.glPopMatrix();
 	   
 		//gl.glPopMatrix();
+		
+		//draw test vertex
+		/*
+		gl.glDisable(GL2.GL_LIGHTING);
+	    gl.glPointSize(8.0f);
+	    gl.glBegin(GL2.GL_POINTS);
+	    gl.glColor3f(0.0f, 0.0f, 0.0f);
+		gl.glVertex3fv(heVertList.get(testVert).coordinate.toArray(), 0);
+	    gl.glEnd();
+	    gl.glEnable(GL2.GL_LIGHTING);
+	    */
 	    
 	    // Draw mesh - first pass
 	    if (drawEdges) {
@@ -183,20 +196,29 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	      gl.glEnable(GL2.GL_POLYGON_OFFSET_FILL);
 	    }
 	    gl.glBegin(GL2.GL_TRIANGLES);
-	    int nf = FACES.length;
-	    for (int i = 0; i < nf; i++) {
-	      Vector3D v0 = VERTICES[FACES[i][0]].copy();
-	      Vector3D v1 = VERTICES[FACES[i][1]].copy();
-	      Vector3D v2 = VERTICES[FACES[i][2]].copy();
-	      v1.subtract(v0);
-	      v2.subtract(v0);
-	      Vector3D norm = v1.crossProduct(v2);
-	      
-	      gl.glNormal3fv(norm.toArray(), 0);
-	      gl.glVertex3fv(VERTICES[FACES[i][0]].toArray(), 0);
-	      gl.glVertex3fv(VERTICES[FACES[i][1]].toArray(), 0);
-	      gl.glVertex3fv(VERTICES[FACES[i][2]].toArray(), 0);
-	    }
+	    //int nf = FACES.length;
+	    int nf = heFaceList.size();
+		for (int i = 0; i < nf; i++) {
+
+			if (heFaceList.get(i).edge == null)
+				continue;
+			
+			Vector3D v0 = heFaceList.get(i).edge.v_begin.coordinate.copy();
+			Vector3D v1 = heFaceList.get(i).edge.he_next.v_begin.coordinate.copy();
+			Vector3D v2 = heFaceList.get(i).edge.he_next.he_next.v_begin.coordinate.copy();
+			
+			//Vector3D v0 = VERTICES[FACES[i][0]].copy();
+			//Vector3D v1 = VERTICES[FACES[i][1]].copy();
+			//Vector3D v2 = VERTICES[FACES[i][2]].copy();
+			v1.subtract(v0);
+			v2.subtract(v0);
+			Vector3D norm = v1.crossProduct(v2);
+
+			gl.glNormal3fv(norm.toArray(), 0);
+			gl.glVertex3fv(VERTICES[FACES[i][0]].toArray(), 0);
+			gl.glVertex3fv(VERTICES[FACES[i][1]].toArray(), 0);
+			gl.glVertex3fv(VERTICES[FACES[i][2]].toArray(), 0);
+		}
 	    gl.glEnd();
 
 	    // Draw mesh - second pass to draw the edges on top
@@ -207,22 +229,31 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	      float[] mat_diffuse= { 0.0f, 0.0f, 1.0f, 1.0f };
 	      gl.glMaterialfv(GL2.GL_FRONT_AND_BACK, GL2.GL_AMBIENT_AND_DIFFUSE, mat_diffuse, 0);
 	      gl.glBegin(GL2.GL_TRIANGLES);
-	      for (int i = 0; i < nf; i++) {
-	    	  Vector3D v0 = VERTICES[FACES[i][0]].copy();
-		      Vector3D v1 = VERTICES[FACES[i][1]].copy();
-		      Vector3D v2 = VERTICES[FACES[i][2]].copy();
-		      v1.subtract(v0);
-		      v2.subtract(v0);
-		      Vector3D norm = v1.crossProduct(v2);
-		      
-		      gl.glNormal3fv(norm.toArray(), 0);
-		      gl.glVertex3fv(VERTICES[FACES[i][0]].toArray(), 0);
-		      gl.glVertex3fv(VERTICES[FACES[i][1]].toArray(), 0);
-		      gl.glVertex3fv(VERTICES[FACES[i][2]].toArray(), 0);
-	      }
+			for (int i = 0; i < nf; i++) {
+				if (heFaceList.get(i).edge == null)
+					continue;
+
+				Vector3D v0 = heFaceList.get(i).edge.v_begin.coordinate.copy();
+				Vector3D v1 = heFaceList.get(i).edge.he_next.v_begin.coordinate.copy();
+				Vector3D v2 = heFaceList.get(i).edge.he_next.he_next.v_begin.coordinate.copy();
+
+				// Vector3D v0 = VERTICES[FACES[i][0]].copy();
+				// Vector3D v1 = VERTICES[FACES[i][1]].copy();
+				// Vector3D v2 = VERTICES[FACES[i][2]].copy();
+				v1.subtract(v0);
+				v2.subtract(v0);
+				Vector3D norm = v1.crossProduct(v2);
+
+				gl.glNormal3fv(norm.toArray(), 0);
+				gl.glVertex3fv(VERTICES[FACES[i][0]].toArray(), 0);
+				gl.glVertex3fv(VERTICES[FACES[i][1]].toArray(), 0);
+				gl.glVertex3fv(VERTICES[FACES[i][2]].toArray(), 0);
+			}
 	      gl.glEnd();
 	      gl.glPolygonMode(GL2.GL_FRONT_AND_BACK, GL2.GL_FILL);
 	    }
+	    
+	    
 
 	    gl.glPopMatrix();
 	    gl.glDisable(GL2.GL_DEPTH_TEST);
@@ -348,27 +379,36 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 			if(v1_new){
 				v1 = new HE_Vert( VERTICES[FACES[i][0]] );
 				heVertList.add(v1);
+				v1.index = heVertList.size() - 1;
 			}
 			if(v2_new){
 				v2 = new HE_Vert( VERTICES[FACES[i][1]] );
 				heVertList.add(v2);
+				v2.index = heVertList.size() - 1;
 			}
 			if(v3_new){
 				v3 = new HE_Vert( VERTICES[FACES[i][2]] );
 				heVertList.add(v3);
+				v3.index = heVertList.size() - 1;
 			}
 			
 			//Create HE_edges
 			e1 = new HE_Edge();
 			heEdgeList.add(e1);
+			e1.index = heEdgeList.size() - 1;
+			
 			e2 = new HE_Edge();
 			heEdgeList.add(e2);
+			e2.index = heEdgeList.size() - 1;
+			
 			e3 = new HE_Edge();
 			heEdgeList.add(e3);
+			e3.index = heEdgeList.size() - 1;
 			
 			//Create HE_Face
 			f = new HE_Face();
 			heFaceList.add(f);
+			f.index = heFaceList.size() - 1;
 			
 			//make connection
 			f.edge = e1; //here choose the first
@@ -496,6 +536,126 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 				} while (edge != edgec);					
 			}	
 		}
+		
+		/*
+		for(int x= 0;x<heVertList.size();x++){
+			System.out.println(heVertList.get(x).computeDegree());
+		}
+		*/
+		
+	}
+	
+	public HE_Vert collapseEdge(HE_Edge edge){
+		if (edge.v_begin == null || edge.he_inv.v_begin == null){
+			return null;
+		}
+		
+		HE_Vert new_vertex = null;
+		
+		// Get all edges adjacent to both vertices
+		int adj_count = edge.v_begin.computeDegree() 
+				+ edge.he_inv.v_begin.computeDegree();
+		adj_count --;
+		HE_Edge[] adj_edges = new HE_Edge[adj_count];
+		
+		int adj_index = 0;
+		
+		// first vertex
+		HE_Edge c_edge = edge.he_next;
+		int count = 0;
+		do{
+			adj_edges[adj_index] = c_edge;
+			adj_index ++;
+			// Is this a boundary edge?
+			c_edge = c_edge.he_inv.he_next;
+			if (count++ > 100)
+				return null;
+		} while (c_edge != edge && c_edge != edge.he_inv);
+		
+		//second vertex
+		c_edge = edge;
+		count = 0;
+		do{
+			adj_edges[adj_index] = c_edge;
+			adj_index ++;
+			c_edge = c_edge.he_inv.he_next;
+			if (count++ > 100)
+				return null;
+		} while (c_edge != edge && c_edge != edge.he_inv);
+
+		
+		for(int i=0;i<adj_count;i++){
+			System.out.println(adj_edges[i].index);
+		}
+		
+		// Determine new vertex position
+		HE_Vert v0 = edge.v_begin;
+		HE_Vert v1 = edge.he_inv.v_begin;
+		
+		// Get the non-collapsing edges that are co-facial that will be degenerate after collapse
+		HE_Edge e11 = edge.he_next;
+		HE_Edge e12 = edge.he_next.he_next;
+		HE_Edge e21 = edge.he_inv.he_next;
+		HE_Edge e22 = edge.he_inv.he_next.he_next;
+		
+		
+		// Just the average for now
+		if (new_vertex == null) {
+			Vector3D temp = v0.coordinate.copy();
+			temp.add(v1.coordinate);
+			temp.scale(0.5f);
+			new_vertex = new HE_Vert(temp);
+		}
+		
+		// Add vertex to mesh data structure
+		heVertList.add(new_vertex);
+		new_vertex.index = heVertList.size()-1;
+		// Update Q
+		for (int i = 0; i < 4; i++){
+			for(int j=0; j < 4;j++){
+				new_vertex.Q[i][j] = v0.Q[i][j] + v1.Q[i][j];
+			}
+		}
+		
+		// Now reset all of these edges to have the vertex
+		// get the rear
+		new_vertex.edge = adj_edges[adj_count-1];
+		
+		
+		for (int i = 0; i < adj_count; i++){
+			adj_edges[i].v_begin = new_vertex;
+		}
+		
+		
+		// Set their he_inv's to be equal to one another
+		e11.he_inv.he_inv = e12.he_inv;
+		e12.he_inv.he_inv = e11.he_inv;
+		e21.he_inv.he_inv = e22.he_inv;
+		e22.he_inv.he_inv = e21.he_inv;
+		
+		e11.v_begin = null;
+		e12.v_begin = null;
+		e21.v_begin = null;
+		e22.v_begin = null;
+		edge.v_begin = null;
+		edge.he_inv.v_begin = null;
+		
+		// Null out degenerate faces
+		if (edge.f_left != null)
+			edge.f_left.edge = null;
+
+		if (edge.he_inv.f_left != null)
+			edge.he_inv.f_left.edge = null;
+		
+		// free temple vertices
+		v0.edge = null;
+		v1.edge = null;
+		
+		//update_quadrics(new_vertex);
+		
+		
+		return new_vertex;
+		
 	}
 	
 	private void dumpMatrix(int[][] matrix){
@@ -559,6 +719,9 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 		}catch(Exception ex){
 			System.err.println("Invalid off model file! " +ex);
 		}
+		
+		
+		collapseEdge(heEdgeList.get(testVert));
 		
 	}
 
