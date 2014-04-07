@@ -50,7 +50,7 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 	private int HEIGHT = 480; // default window height
 	private final int EXPECTED_FPS = 60;
 	
-	private final String modelFileName = "model/test.off";
+	private final String modelFileName = "model/cone.off";
 	//private final String modelFileType = ".off";
 
 	private GLAnimatorControl animator;
@@ -268,7 +268,7 @@ public class Main extends Applet implements GLEventListener, KeyListener, MouseL
 			String temp = " Vertices: "+heVertList.size()+" Edges: "+(heEdgeList.size())/2 + " Faces: "+heFaceList.size();
 			textrenderer.draw("FPS: " + fpsStr + temp, 10, 10);
 			textrenderer.draw("Hold mouse left to drag, middle to move, right to zoom.", 10, HEIGHT-20);
-			textrenderer.draw("Press E to show mesh edges, E to decimate meshes.", 10, HEIGHT-40);
+			textrenderer.draw("Press E to show mesh edges, D to decimate meshes.", 10, HEIGHT-40);
 			textrenderer.endRendering();
 		}
 
